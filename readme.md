@@ -6,8 +6,7 @@ sh run_d2d_fedavg_standalone_pytorch.sh 0 20 fed_cifar100 ./data/fed_cifar100/da
 
 ```
 Gaussian_indicator: 0 1 2 3
-'3': # bit flipping; only artificial noise for protecting privacy
-'1': #communication noise: Bit flipping; Artifical noise: Gaussain Noise
-'2': #Gaussain Mechanism and aggregate with all received model.
-# superimposed artificial and communication noise for bit flipping
-```
+'3': channel-agnostic bit-flipping mechanism
+'1': Channel-agnostic Gaussian mechanism 
+'2': channel-agnostic Gaussian mechanism suffering from erroneous packets dropped
+'0': Channel-native Gaussian mechanism 
