@@ -12,6 +12,7 @@ from scipy.stats import bernoulli
 import torch
 from NoiseAdd import bit_noise_add
 from NoiseAdd import Gaussian_noise_add
+from NoiseAdd import bit_noise_add_gaussian
 
 
 
@@ -43,7 +44,7 @@ class FedAvgAPI(object):
     def _setup_clients(self, train_data_local_num_dict, train_data_local_dict, test_data_local_dict, model_trainer):
         logging.info("############setup_clients (START)#############")
         for client_idx in range(self.args.d2d_user_num):
-            # print(client_idx)
+            print(client_idx)
             c = Client(client_idx, train_data_local_dict[client_idx], test_data_local_dict[client_idx],
                        train_data_local_num_dict[client_idx], self.args, self.device, model_trainer)
             self.client_list.append(c)
@@ -95,21 +96,23 @@ class FedAvgAPI(object):
                 w = client.train( copy.deepcopy(w_global))
                 end = time.time()
                 noised_w=None
-                if self.args.Gaussian_indicator=='0': # superimposed artificial and communication noise for bit flipping
+                if self.args.Gaussian_indicator=='0': # adaptive  artificial bit flipping
 
                     BER = self._BER_calculate()
 
                     communication_BER = 1 - random.uniform(float(self.args.minimum_BSR), 1)
 
                     artificial_BER = (BER - communication_BER) / (1 - 2 * communication_BER)
-                    # print("Artificial_BER: " + str(artificial_BER))
+                    print("Artificial_BER: " + str(artificial_BER))
                     if artificial_BER > 0:
                         logging.info(
                             "communication_BER: " + str(communication_BER) + ", artificial_BER: " + str(artificial_BER))
+                        # 这里生成随机数，作为通信ber，然后给出计算人工ber的计算公式
                         logging.info('BER = ' + str(BER))
                     else:
                         logging.info(
                             "communication_BER: " + str(communication_BER) + ", artificial_BER: " + str(0))
+                        # 这里生成随机数，作为通信ber，然后给出计算人工ber的计算公式
                         logging.info('BER = ' + str(communication_BER))
                         artificial_BER=0
 
@@ -120,7 +123,7 @@ class FedAvgAPI(object):
 
                     communication_PER = 1 - random.uniform(float(self.args.minimum_BSR), 1)**(int(self.args.packet_length))
 
-                    logging.info("communication_PER: " + str(communication_PER)+ ", packet_length: " + str(self.args.packet_length)+ ", Gaussian_variance: " + str(
+                    logging.info("communication_PER: " + str(communication_PER)+ "packet_length: " + str(self.args.packet_length)+ ", Gaussian_variance: " + str(
                         Gaussian_variance))
 
                     noised_w = Gaussian_noise_add(self.args, Gaussian_variance, w)
@@ -137,19 +140,25 @@ class FedAvgAPI(object):
 
 
                     noised_Gaussian_w=Gaussian_noise_add(self.args,Gaussian_variance,w)
-                    noised_w=bit_noise_add(1-communication_BER,1,float(self.args.Clipping_threshold),noised_Gaussian_w)
-                elif self.args.Gaussian_indicator=='3': # bit flipping; only artificial noise for protecting privacy
+                    noised_w=bit_noise_add_gaussian(1-communication_BER,1,float(self.args.Clipping_threshold),noised_Gaussian_w)
+                elif self.args.Gaussian_indicator=='3': # bit flipping
 
                     Artificial_BER = self._BER_calculate()
 
                     communication_BER = 1 - random.uniform(float(self.args.minimum_BSR), 1)
 
                     Joint_BER = Artificial_BER+communication_BER-2*communication_BER*Artificial_BER
+                    # print("Artificial_BER: " + str(Artificial_BER))
+                    # if artificial_BER > 0:
                     logging.info(
                         "communication_BER: " + str(communication_BER) + ", artificial_BER: " + str(Artificial_BER))
-
+                    # 这里生成随机数，作为通信ber，然后给出计算人工ber的计算公式
                     logging.info('Joint_BER = ' + str(Joint_BER))
-
+                    # else:
+                    #     logging.info(
+                    #         "communication_BER: " + str(communication_BER) + ", artificial_BER: " + str(0))
+                    #     # 这里生成随机数，作为通信ber，然后给出计算人工ber的计算公式
+                    #     logging.info('BER = ' + str(communication_BER))
 
                     noised_w = bit_noise_add(1 - communication_BER, 1 - Artificial_BER,
                                              float(self.args.Clipping_threshold), w)
@@ -441,8 +450,8 @@ class FedAvgAPI(object):
         logging.info(stats)
 
     def Gaussian_BER_variance(self):
-        delta_s = 1.6 * 10 ** (-3)
+        delta_s = 1.6 * 10 ** (-4)
 
-        noise_scale = delta_s * np.sqrt(2 * float(self.args.comm_round) * np.log(1 / 0.01)) / (float(self.args.privacy_budget)*5.9/float(self.args.different_model_bit_numbers))
+        noise_scale = delta_s * float(self.args.comm_round)* np.sqrt(2  * np.log(1.25 / 0.25)) / (float(self.args.privacy_budget)*0.02/float(self.args.different_model_bit_numbers))
 
         return noise_scale
